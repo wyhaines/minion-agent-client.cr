@@ -31,3 +31,19 @@ The total size of this two byte header plus the data packet can be no longer
 than 8k (8192 bytes).
 
 The two byte length is transfered in Big Endian order.
+
+So, for example, consider the following message:
+
+```
+2020-06-10 16:23:50 -06:00|stderr|warn|this is very very serious
+```
+
+That is 66 bytes when serialized to MessagePack. Expressed as two bytes, big
+endian, that is:
+
+```
+00.42
+```
+
+Those two bytes should be the first two sent, and then immediately after those
+bytes should come the other 66 bytes.
