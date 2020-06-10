@@ -18,3 +18,16 @@ TODO:
 * Fix failure handling. It actually has a bug right now.
 * Add support for TLS encryption of the socket communications.
 * Add a real debug option to show all communications.
+
+## Communications Protocol
+
+The payloads are serialized using the MessagePack protocol.  MessagePack does
+not serialize the length of the serialized data, which negatively affects
+network read performance. To work around this, all data which is sent or
+received is prefixed with two bytes which encode the length of the data packet
+that follows.
+
+The total size of this two byte header plus the data packet can be no longer
+than 8k (8192 bytes).
+
+The two byte length is transfered in Big Endian order.
