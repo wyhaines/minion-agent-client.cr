@@ -9,6 +9,9 @@ if ARGV.size == 1
   port = p.to_i
 end
 
+group = "test-group-2"
+key = "798c733ba086c606fa8a925ab69bebf1cc44ee11a19ac81eaa4689774a6b6b04"
+
 host ||= "127.0.0.1"
 port = 47990 if port == 0 || port.nil?
 
@@ -18,7 +21,7 @@ else
   service = "stderr"
 end
 
-logger = Minion::Client.new(service: service, host: host, port: port)
+logger = Minion::Client.new(service: service, host: host, port: port, group: group, key: key)
 
 fancy = Fancyline.new
 puts "Log format is:\nSEVERITY : MESSAGE\nPress ctrl-d or type 'exit' to exit logging shell."
