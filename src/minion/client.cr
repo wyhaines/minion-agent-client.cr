@@ -6,7 +6,6 @@ require "msgpack"
 require "retriable"
 
 module Minion
-
   #####
   # Client Protocol
   #
@@ -40,12 +39,12 @@ module Minion
       end
     end
 
-    MAX_MESSAGE_LENGTH = 8192
-    MAX_LENGTH_BYTES = MAX_MESSAGE_LENGTH.to_s.length
-    CONNECTION_FAILURE_TIMEOUT = 86_400 * 2 # Log locally for a long time if Minion server goes down.
-    MAX_FAILURE_COUNT = 0_u128 &- 1 # Max integer -- i.e. really big
-    PERSISTENT_QUEUE_LIMIT = 10_737_412_742 # Default to allowing around 10GB temporary local log storage
-    RECONNECT_THROTTLE_INTERVAL = 0.1
+    MAX_MESSAGE_LENGTH          = 8192
+    MAX_LENGTH_BYTES            = MAX_MESSAGE_LENGTH.to_s.length
+    CONNECTION_FAILURE_TIMEOUT  = 86_400 * 2     # Log locally for a long time if Minion server goes down.
+    MAX_FAILURE_COUNT           = 0_u128 &- 1    # Max integer -- i.e. really big
+    PERSISTENT_QUEUE_LIMIT      = 10_737_412_742 # Default to allowing around 10GB temporary local log storage
+    RECONNECT_THROTTLE_INTERVAL =            0.1
 
     def send(
       verb : String | Symbol = "",
@@ -63,9 +62,10 @@ module Minion
       setup_reconnect_fiber
     end
 
-    #----- Various class accessors -- use these to set defaults
+    # ----- Various class accessors -- use these to set defaults
 
     @@connection_failure_timeout : Int32 = CONNECTION_FAILURE_TIMEOUT
+
     def self.connection_failure_timeout
       @@connection_failure_timeout
     end
@@ -75,6 +75,7 @@ module Minion
     end
 
     @@max_failure_count : UInt128 = MAX_FAILURE_COUNT
+
     def self.max_failure_count
       @@max_failure_count
     end
@@ -84,6 +85,7 @@ module Minion
     end
 
     @@persistent_queue_limit = PERSISTENT_QUEUE_LIMIT
+
     def self.persistent_queue_limit
       @@persistent_queue_limit ||= PERSISTENT_QUEUE_LIMIT
     end
@@ -100,7 +102,7 @@ module Minion
       @@reconnect_throttle_interval = val.to_i
     end
 
-    #-----
+    # -----
 
     # Instance Variable type declarations
     @socket : TCPSocket?
@@ -110,7 +112,7 @@ module Minion
     @connection_failure_timeout : Int32
     @max_failure_count : UInt128
     @persistent_queue_limit : Int64
-    #@message_buffer : Slice(UInt8)
+    # @message_buffer : Slice(UInt8)
     @tmplog : String?
     @reconnect_throttle_interval : Float64
     @io_details : Hash(IO, IoDetails) = {} of IO => IoDetails
@@ -130,22 +132,22 @@ module Minion
       @logfile = nil
       @swamp_drainer = nil
       @failed_at = nil
-      #@send_size_buffer = Slice(UInt8).new(2)
-      #@receive_size_buffer = Slice(UInt8).new(2)
-      #@size_read = 0
-      #@message_bytes_read = 0
-      #@message_size = 0_u16
-      #@data_buffer = Slice(UInt8).new(MAX_MESSAGE_LENGTH)
-      #@message_buffer = @data_buffer[0,1]
-      #@read_message_size = true
-      #@read_message_body = false
+      # @send_size_buffer = Slice(UInt8).new(2)
+      # @receive_size_buffer = Slice(UInt8).new(2)
+      # @size_read = 0
+      # @message_bytes_read = 0
+      # @message_size = 0_u16
+      # @data_buffer = Slice(UInt8).new(MAX_MESSAGE_LENGTH)
+      # @message_buffer = @data_buffer[0,1]
+      # @read_message_size = true
+      # @read_message_body = false
 
       # Establish the initial connection.
       clear_failure
       connect
     end
 
-    #----- Various instance accessors
+    # ----- Various instance accessors
 
     getter total_count
     getter connection_failure_timeout
@@ -196,7 +198,7 @@ module Minion
       @reconnect_throttle_interval = val.to_i
     end
 
-    #----- The meat of the client
+    # ----- The meat of the client
 
     def connect
       @socket = open_connection(@host, @port)
@@ -238,24 +240,24 @@ module Minion
       if details.read_message_size
         if details.size_read == 0_u16
           details.size_read = @socket.not_nil!.read(details.send_size_buffer).to_u16
-          if details.size_read < 2_u16 
+          if details.size_read < 2_u16
             Fiber.yield
           end
         end
 
         if details.size_read == 1_u16
-         byte = @socket.not_nil!.read_byte
-         if byte
-           details.send_size_buffer[1] = byte
-           details.size_read = 2_u16
-         end
-       end
+          byte = @socket.not_nil!.read_byte
+          if byte
+            details.send_size_buffer[1] = byte
+            details.size_read = 2_u16
+          end
+        end
 
-       if details.size_read > 1_u16
-        details.read_message_body = true
-        details.read_message_size = false
-        details.size_read = 0_u16
-       end
+        if details.size_read > 1_u16
+          details.read_message_body = true
+          details.read_message_size = false
+          details.size_read = 0_u16
+        end
       end
 
       if details.read_message_body
@@ -317,7 +319,7 @@ module Minion
     end
 
     # TODO: This is gross. Use overloading instead of doing this like it's Ruby.
-    #def _send_remote(service, severity, message, flush_after_send = true)
+    # def _send_remote(service, severity, message, flush_after_send = true)
     def _send_remote(
       verb : String | Symbol = "",
       uuid : UUID = UUID.new,
@@ -457,7 +459,6 @@ module Minion
       @logfile && (@logfile.not_nil!.sync = true)
 
       tmplogs.each do |logfile|
-
         File.exists?(logfile) && File.open(logfile) do |fh|
           non_blocking_lock_on_file_handle(fh) do # Only one process should read a given file.
             fh.fsync

@@ -4,15 +4,15 @@ require "option_parser"
 require "fancyline"
 require "./client"
 
-VERSION = "0.1.0"
-CONFIG = {} of String => String|Int32
+VERSION  = "0.1.0"
+CONFIG   = {} of String => String | Int32
 COMMANDS = {
-  "log": "L",
-  "command": "C",
-  "response": "R",
+  "log":       "L",
+  "command":   "C",
+  "response":  "R",
   "telemetry": "T",
-  "query": "Q",
-  "set": "S"
+  "query":     "Q",
+  "set":       "S",
 }
 
 OptionParser.new do |opts|
@@ -20,7 +20,7 @@ OptionParser.new do |opts|
   opts.separator ""
 
   opts.on("-s", "--server [HOST:PORT]", "The host and the port where the stream server to connect to is found.") do |server|
-    parts = server.split(/:/,2)
+    parts = server.split(/:/, 2)
     if parts.size > 1
       host, port = parts
       CONFIG["host"] = host
@@ -76,18 +76,16 @@ fancy = Fancyline.new
 puts "Messages to the StreamServer are in the format of:\nVERB::DATA1::DATA2::DATAn\nType 'verbs' for a list of known verbs\nType 'exit' or press CTRL-d to exit.\n"
 
 colors = {
-  "data": :white,
-  "verb": :green,
+  "data":      :white,
+  "verb":      :green,
   "highlight": :yellow,
-  "error": :light_red
+  "error":     :light_red,
 }
 
 fancy.display.add do |context, line, yielder|
   if line && line =~ /\b\s*::\s*/
-    verb, data = line.split(/::/,2)
-    color_verb = (COMMANDS.has_key?(verb) || COMMANDS.values.includes?(verb)) ?
-      verb.colorize(colors["verb"]) :
-      verb.colorize(colors["error"])
+    verb, data = line.split(/::/, 2)
+    color_verb = (COMMANDS.has_key?(verb) || COMMANDS.values.includes?(verb)) ? verb.colorize(colors["verb"]) : verb.colorize(colors["error"])
 
     color_parts = Array(Colorize::Object(String)).new(1)
     if ["log", "L", "telemetry", "T", "response", "R"].includes?(verb)
@@ -95,11 +93,11 @@ fancy.display.add do |context, line, yielder|
       color_parts << parts[0].colorize(colors["highlight"])
 
       if parts.size > 1
-        color_parts = color_parts + parts[1..-1].map {|d| d.colorize(colors["data"])}
+        color_parts = color_parts + parts[1..-1].map { |d| d.colorize(colors["data"]) }
       end
     else
-      #new_parts = data.split(/::/).map {|d| d.colorize(colors["data"])}
-      color_parts = data.split(/::/).map {|d| d.colorize(:cyan)}
+      # new_parts = data.split(/::/).map {|d| d.colorize(colors["data"])}
+      color_parts = data.split(/::/).map { |d| d.colorize(:cyan) }
     end
     line = "#{color_verb}::#{color_parts.join("::")}"
   end
