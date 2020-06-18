@@ -54,7 +54,7 @@ while input = fancy.readline("$ ")
   severity, msg = input.split(/\b\s*:\s*\b/,2)
   if severity != "" && msg != ""
     puts "   ...>"
-    logger.log(severity, msg)
+    logger.send(verb: "L", data: [service, msg])
   else
     puts "ERROR"
   end

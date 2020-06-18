@@ -47,11 +47,15 @@ module Minion
     PERSISTENT_QUEUE_LIMIT = 10_737_412_742 # Default to allowing around 10GB temporary local log storage
     RECONNECT_THROTTLE_INTERVAL = 0.1
 
-    def send(verb, payload)
+    def send(
+      verb : String | Symbol = "",
+      uuid : UUID = UUID.new,
+      data : Array(String) = [@group] of String
+    )
       if @destination == :local
-        _local_log(@service, verb, payload)
+        _local_log(verb: verb, uuid: uuid, data: [@group] + data)
       else
-        _send_remote(@service, verb, payload)
+        _send_remote(verb: verb, uuid: uuid, data: [@group] + data)
       end
     rescue Exception
       @authenticated = false
@@ -232,30 +236,30 @@ module Minion
     def read(io = @socket)
       details = @io_details[io]
       if details.read_message_size
-        if details.size_read == 0
-          details.size_read = @socket.not_nil!.read(details.send_size_buffer)
-          if details.size_read < 2 
+        if details.size_read == 0_u16
+          details.size_read = @socket.not_nil!.read(details.send_size_buffer).to_u16
+          if details.size_read < 2_u16 
             Fiber.yield
           end
         end
 
-        if details.size_read == 1
+        if details.size_read == 1_u16
          byte = @socket.not_nil!.read_byte
          if byte
            details.send_size_buffer[1] = byte
-           details.size_read = 2
+           details.size_read = 2_u16
          end
        end
 
-       if details.size_read > 1
+       if details.size_read > 1_u16
         details.read_message_body = true
         details.read_message_size = false
-        details.size_read = 0
+        details.size_read = 0_u16
        end
       end
 
       if details.read_message_body
-        if details.message_size == 0
+        if details.message_size == 0_u16
           details.message_size = IO::ByteFormat::BigEndian.decode(UInt16, details.send_size_buffer)
           details.message_buffer = details.data_buffer[0, details.message_size]
         end
@@ -269,19 +273,18 @@ module Minion
         end
 
         if details.message_bytes_read >= details.message_size
-          #msg = Tuple(String, String, String).from_msgpack(@message_buffer) TODO: Handle different types right.
-          #msg = String.from_msgpack(@message_buffer)
-          msg = Tuple(String, String, Array(String)).from_msgpack(details.message_buffer).as(Tuple(String, String, Array(String)))        
-          deails.read_message_body = false
+          msg = Tuple(String, String, Array(String)).from_msgpack(details.message_buffer).as(Tuple(String, String, Array(String)))
+          details.read_message_body = false
           details.read_message_size = true
-          details.message_size = 0
-          details.message_bytes_read = 0
+          details.message_size = 0_u16
+          details.message_bytes_read = 0_u16
 
           return msg
         else
           Fiber.yield
         end
       end
+      nil
     end
 
     def setup_local_logging
@@ -316,7 +319,7 @@ module Minion
     # TODO: This is gross. Use overloading instead of doing this like it's Ruby.
     #def _send_remote(service, severity, message, flush_after_send = true)
     def _send_remote(
-      verb : String | Symbol,
+      verb : String | Symbol = "",
       uuid : UUID = UUID.new,
       data : Array(String) = [@group] of String,
       flush_after_send = false,
@@ -376,7 +379,7 @@ module Minion
     def close_connection
       s = @socket
       if !s.nil?
-        s.close if !@socket.closed?
+        s.close if !s.closed?
         @io_details.delete(s)
       end
     end
@@ -413,13 +416,16 @@ module Minion
           verb: :command,
           data: [@group, "authenticate-agent", @key],
           flush_after_send: true)
-        response = read
+        until response = read
+          Fiber.yield
+        end
       rescue e : Exception
         STDERR.puts "\nauthenticate: #{e}\n#{e.backtrace.join("\n")}"
         response = nil
       end
 
-      @authenticated = if response && response =~ /accepted/
+      response = Frame.new(response.not_nil!)
+      @authenticated = if response && response.data[0] =~ /accepted/
                          true
                        else
                          false
@@ -459,8 +465,9 @@ module Minion
             while logfile_not_empty
               record = read(fh) unless closed?
               if record
+                record = Frame.new(record)
                 Retriable.retry(max_interval: 1.minute, max_attempts: 0_u32 &- 1, multiplier: 1.05) do
-                  _send_remote(already_packed_msg: record)
+                  _send_remote(already_packed_msg: record.to_msgpack)
                 end
               else
                 logfile_not_empty = false

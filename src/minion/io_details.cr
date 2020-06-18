@@ -1,6 +1,7 @@
 module Minion
   class IoDetails
     property read_message_size
+    property message_bytes_read
     property size_read
     property send_size_buffer
     property read_message_body
@@ -11,8 +12,9 @@ module Minion
     property receive_size_buffer
 
     def initialize(
-      @read_message_size = false,
-      @size_read = 0,
+      @read_message_size = true,
+      @message_bytes_read = 0_u16,
+      @size_read = 0_u16,
       @send_size_buffer = Slice(UInt8).new(2),
       @read_message_body = false,
       @message_size = 0_u16,
