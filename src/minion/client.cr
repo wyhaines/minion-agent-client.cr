@@ -115,7 +115,7 @@ module Minion
     @reconnect_throttle_interval : Float64
     @io_details : Hash(IO, IoDetails) = {} of IO => IoDetails
 
-    def initialize(@service = "default", @host = "127.0.0.1", @port = 6766, @group = "", @key = "")
+    def initialize(@host = "127.0.0.1", @port = 6766, @group = "", @key = "")
       # That's a lot of instance variables....
       @socket = nil
       klass = self.class
@@ -179,11 +179,11 @@ module Minion
     end
 
     def tmplog
-      @tmplog ||= tmplog_prefix.gsub(/SERVICE/, @service).gsub(/PID/, Process.pid.to_s)
+      @tmplog ||= tmplog_prefix.gsub(/SERVICE/, @group).gsub(/PID/, Process.pid.to_s)
     end
 
     def tmplogs
-      Dir[tmplog_prefix.gsub(/SERVICE/, @service).gsub(/PID/, "*")].sort_by { |f| File.info(f).modification_time }
+      Dir[tmplog_prefix.gsub(/SERVICE/, @group).gsub(/PID/, "*")].sort_by { |f| File.info(f).modification_time }
     end
 
     setter tmplog
