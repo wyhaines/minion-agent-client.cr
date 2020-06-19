@@ -126,7 +126,10 @@ while input = fancy.readline("$ ")
                        telemetry::loadavg::0.52::0.58::0.59
       response (R)  -- response::COMMANDID::TEXT
                        response::26d30cad-a07b-4aab-8f6e-52158ec73121:: 09:37:58 up 1 day,  9:00,  0 users,  load average: 0.52, 0.58, 0.59
-    EHELP
+
+      Built in benchmarking support:
+      1000000 times {log::stderr::This is a testing log message.}
+      EHELP
   else
     repeat = 1
     if input =~ /^\s*(\d+)\s+times\s*\{(.*?)\}\s*$/
