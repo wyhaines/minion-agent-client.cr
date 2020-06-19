@@ -3,6 +3,7 @@
 require "option_parser"
 require "fancyline"
 require "./client"
+require "benchmark"
 
 VERSION  = "0.1.0"
 CONFIG   = {} of String => String | Int32
@@ -83,6 +84,13 @@ colors = {
 }
 
 fancy.display.add do |context, line, yielder|
+  if line =~ /^(\s*\d+\s+times\s*)\{(.*?)\}\s*$/
+    prefix = $1.colorize(:light_green)
+    line = $2
+  else
+    prefix = nil
+  end
+
   if line && line =~ /\b\s*::\s*/
     verb, data = line.split(/::/, 2)
     color_verb = (COMMANDS.has_key?(verb) || COMMANDS.values.includes?(verb)) ? verb.colorize(colors["verb"]) : verb.colorize(colors["error"])
@@ -99,7 +107,11 @@ fancy.display.add do |context, line, yielder|
       # new_parts = data.split(/::/).map {|d| d.colorize(colors["data"])}
       color_parts = data.split(/::/).map { |d| d.colorize(:cyan) }
     end
-    line = "#{color_verb}::#{color_parts.join("::")}"
+    if prefix
+      line = "#{prefix}{#{color_verb}::#{color_parts.join("::")}}"
+    else
+      line = "#{color_verb}::#{color_parts.join("::")}"
+    end
   end
   yielder.call context, line
 end
@@ -116,12 +128,28 @@ while input = fancy.readline("$ ")
                        response::26d30cad-a07b-4aab-8f6e-52158ec73121:: 09:37:58 up 1 day,  9:00,  0 users,  load average: 0.52, 0.58, 0.59
     EHELP
   else
+    repeat = 1
+    if input =~ /^\s*(\d+)\s+times\s*\{(.*?)\}\s*$/
+      repeat = $1.to_i
+      input = $2
+    end
+
     parts = input.split(/::/)
     verb = parts[0]
     verb = COMMANDS[verb] if COMMANDS.has_key?(verb)
 
     data = parts.size > 1 ? parts[1..-1] : [] of String
     STDERR.puts "Sending: verb: #{verb}, data: #{data.inspect}"
-    streamserver.send(verb: verb, data: data)
+    if repeat > 1
+      Benchmark.bm do |bm|
+        bm.report("#{repeat} iterations") do
+          repeat.times do |n|
+            streamserver.send(verb: verb, data: data)
+          end
+        end
+      end
+    else
+      streamserver.send(verb: verb, data: data)
+    end
   end
 end
