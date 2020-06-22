@@ -20,7 +20,7 @@ OptionParser.new do |opts|
   opts.banner = "IAR Interactive Agent REPL v#{VERSION}\nUsage: iar [options]"
   opts.separator ""
 
-  opts.on("-s", "--server [HOST:PORT]", "The host and the port where the stream server to connect to is found.") do |server|
+  opts.on("--host [HOST:PORT]", "The host and the port where the stream server to connect to is found.") do |server|
     parts = server.split(/:/, 2)
     if parts.size > 1
       host, port = parts
@@ -39,6 +39,13 @@ OptionParser.new do |opts|
 
   opts.on("-g", "--group [ID]", "The group or organization ID to use when talking to the stream server.") do |id|
     CONFIG["group"] = id
+  end
+
+  opts.on("-s", "--server [ID]", "The UUID to use to identify this server. If one is not provided, the client will generate one.") do |id|
+    begin
+      CONFIG["server"] = Minion::UUID.new(id)
+    rescue ex
+    end
   end
 
   opts.on("-k", "--key [KEY]", "The key to use along with the group ID to authenticate to the stream server.") do |key|
@@ -65,12 +72,14 @@ end.parse
 CONFIG["host"] = "127.0.0.1" unless CONFIG.has_key?("host")
 CONFIG["port"] = 47990 unless CONFIG.has_key?("port")
 CONFIG["group"] = "" unless CONFIG.has_key?("group")
+CONFIG["server"] = Minion::UUID.new unless CONFIG.has_key?("server")
 CONFIG["key"] = "" unless CONFIG.has_key?("key")
 
 streamserver = Minion::Client.new(
   host: CONFIG["host"].to_s,
   port: CONFIG["port"].to_i,
   group: CONFIG["group"].to_s,
+  server: CONFIG["server"].to_s,
   key: CONFIG["key"].to_s)
 
 fancy = Fancyline.new

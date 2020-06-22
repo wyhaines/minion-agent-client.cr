@@ -21,7 +21,7 @@ module Minion
   # as follows:
   #
   # +--------+------+========+========+========+
-  # |  UUID  | Verb | Data_1 | Data_2 | Data_n |
+  # |  Verb  | UUID | Data_1 | Data_2 | Data_n |
   # +--------+------+========+========+========+
   #
   # UUID encodes a timestamp as an unsigned 64 bit integer containing the number of nanoseconds since
@@ -49,12 +49,12 @@ module Minion
     def send(
       verb : String | Symbol = "",
       uuid : UUID = UUID.new,
-      data : Array(String) = [@group] of String
+      data : Array(String) = [@group, @server] of String
     )
       if @destination == :local
-        _local_log(verb: verb, uuid: uuid, data: [@group] + data)
+        _local_log(verb: verb, uuid: uuid, data: [@group, @server] + data)
       else
-        _send_remote(verb: verb, uuid: uuid, data: [@group] + data)
+        _send_remote(verb: verb, uuid: uuid, data: [@group, @server] + data)
       end
     rescue Exception
       @authenticated = false
@@ -116,8 +116,14 @@ module Minion
     @tmplog : String?
     @reconnect_throttle_interval : Float64
     @io_details : Hash(IO, IoDetails) = {} of IO => IoDetails
+    @server : String
 
-    def initialize(@host = "127.0.0.1", @port = 6766, @group = "", @key = "")
+    def initialize(
+      @host = "127.0.0.1",
+      @port = 6766,
+      @group = "",
+      @server = UUID.new(identifier: build_identifier).to_s,
+      @key = "")
       # That's a lot of instance variables....
       @socket = nil
       klass = self.class
@@ -146,7 +152,6 @@ module Minion
       clear_failure
       connect
     end
-
     # ----- Various instance accessors
 
     getter total_count
@@ -323,7 +328,7 @@ module Minion
     def _send_remote(
       verb : String | Symbol = "",
       uuid : UUID = UUID.new,
-      data : Array(String) = [@group] of String,
+      data : Array(String) = [@group, @server] of String,
       flush_after_send = false,
       already_packed_msg : Slice(UInt8) | Nil = nil
     )
@@ -362,7 +367,7 @@ module Minion
     def _local_log(
       verb : String | Symbol = "",
       uuid : UUID = UUID.new,
-      data : Array(String) = [@group] of String,
+      data : Array(String) = [@group, @server] of String,
       already_packed_msg : Slice(UInt8) | Nil = nil
     )
       # Convert newlines to a different marker so that log messages can be stuffed onto a single file line.
@@ -416,7 +421,7 @@ module Minion
       begin
         _send_remote(
           verb: :command,
-          data: [@group, "authenticate-agent", @key],
+          data: [@group, @server, "authenticate-agent", @key],
           flush_after_send: true)
         until response = read
           Fiber.yield
@@ -500,5 +505,31 @@ module Minion
     def closed?
       @socket.not_nil!.closed?
     end
+
+    # This only comes into play if a server ID is being fabricated by the client itself.
+    # It tries to get the MAC address of the main interface on the system via a poor
+    # heuristic, and if that fails, it just makes 6 random bytes.
+    def build_identifier(random = false)
+      match = nil
+      unless random
+        ip_lines = `ip link show`.split(/\n/).map(&.strip)
+        q = [] of String
+        while line = ip_lines.shift?
+          if line =~ /<.*?UP.*?>/ && line =~ /<.*?BROADCAST/
+            line += ip_lines.shift?.to_s
+            q << line
+          end
+        end
+
+        match = /(([a-f0-9]+):?){6}\s*$/.match q.sort.first
+      end
+
+      if match.nil? || random
+        Random.new.random_bytes(6)
+      else
+        $0.split(/:/).join.hexbytes
+      end
+    end
+
   end
 end
