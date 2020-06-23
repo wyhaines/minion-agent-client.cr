@@ -14,6 +14,7 @@ COMMANDS = {
   "telemetry": "T",
   "query":     "Q",
   "set":       "S",
+  "tail":      "T"
 }
 
 OptionParser.new do |opts|
@@ -43,7 +44,7 @@ OptionParser.new do |opts|
 
   opts.on("-s", "--server [ID]", "The UUID to use to identify this server. If one is not provided, the client will generate one.") do |id|
     begin
-      CONFIG["server"] = Minion::UUID.new(id)
+      CONFIG["server"] = Minion::UUID.new(id).to_s
     rescue ex
     end
   end
@@ -72,7 +73,7 @@ end.parse
 CONFIG["host"] = "127.0.0.1" unless CONFIG.has_key?("host")
 CONFIG["port"] = 47990 unless CONFIG.has_key?("port")
 CONFIG["group"] = "" unless CONFIG.has_key?("group")
-CONFIG["server"] = Minion::UUID.new unless CONFIG.has_key?("server")
+CONFIG["server"] = Minion::UUID.new.to_s unless CONFIG.has_key?("server")
 CONFIG["key"] = "" unless CONFIG.has_key?("key")
 
 streamserver = Minion::Client.new(
@@ -135,10 +136,29 @@ while input = fancy.readline("$ ")
                        telemetry::loadavg::0.52::0.58::0.59
       response (R)  -- response::COMMANDID::TEXT
                        response::26d30cad-a07b-4aab-8f6e-52158ec73121:: 09:37:58 up 1 day,  9:00,  0 users,  load average: 0.52, 0.58, 0.59
-
+      tail PATH     -- tail::SERVICE::PATH
+                       tail::stderr::/var/log/messages
+                       Monitor PATH for changes, and send them as logs.
       Built in benchmarking support:
       1000000 times {log::stderr::This is a testing log message.}
       EHELP
+  elsif input =~ /^\s*tail\s*/
+    parts = input.split(/::/,3)
+    next unless parts.size > 2
+    spawn do
+      watch_service = parts[1]
+      watch_path = parts[2]
+      watch_position = 0
+      File.open(watch_path) do |fh|
+        fh.seek(offset: 0, whence: IO::Seek::End)
+        loop do
+          while line = fh.gets
+            streamserver.send(verb: "L", data: [watch_service, line])
+          end
+          sleep(1)
+        end
+      end
+    end
   else
     repeat = 1
     if input =~ /^\s*(\d+)\s+times\s*\{(.*?)\}\s*$/
