@@ -14,7 +14,7 @@ COMMANDS = {
   "telemetry": "T",
   "query":     "Q",
   "set":       "S",
-  "tail":      "T"
+  "tail":      "T",
 }
 
 OptionParser.new do |opts|
@@ -143,7 +143,7 @@ while input = fancy.readline("$ ")
       1000000 times {log::stderr::This is a testing log message.}
       EHELP
   elsif input =~ /^\s*tail\s*/
-    parts = input.split(/::/,3)
+    parts = input.split(/::/, 3)
     next unless parts.size > 2
     spawn do
       watch_service = parts[1]

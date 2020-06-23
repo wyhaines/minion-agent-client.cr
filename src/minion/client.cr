@@ -123,7 +123,8 @@ module Minion
       @port = 6766,
       @group = "",
       @server = UUID.new(identifier: build_identifier).to_s,
-      @key = "")
+      @key = ""
+    )
       # That's a lot of instance variables....
       @socket = nil
       klass = self.class
@@ -152,6 +153,7 @@ module Minion
       clear_failure
       connect
     end
+
     # ----- Various instance accessors
 
     getter total_count
@@ -530,6 +532,5 @@ module Minion
         $0.split(/:/).join.hexbytes
       end
     end
-
   end
 end
